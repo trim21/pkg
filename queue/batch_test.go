@@ -50,15 +50,17 @@ func TestBatched_2(t *testing.T) {
 	q.Push(100)
 
 	time.Sleep(time.Millisecond * 700)
+	// 0.7s
 	q.Push(101)
 	q.Push(102)
 
-	// {100, 100, 100}
 	time.Sleep(time.Millisecond * 700)
+	// 1.7s
 
 	q.Push(103)
 
 	time.Sleep(time.Second * 2)
+	// 3.7s
 
 	for i := 0; i < 8; i++ {
 		q.Push(i)
