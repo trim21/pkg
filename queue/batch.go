@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"context"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -9,8 +8,6 @@ import (
 
 // NewBatched create a batched queue, consume will receive a batched items on max size or on at timeout.
 func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batched[T] {
-	ctx, canal := context.WithCancel(context.Background())
-
 	if size == 0 {
 		panic("size can't be 0")
 	}
@@ -24,12 +21,11 @@ func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batc
 	}
 
 	q := &Batched[T]{
-		batchSize: size,
-		consume:   consume,
-		timeout:   timeout,
-		c:         make(chan T),
-		canal:     canal,
-		ctx:       ctx,
+		batchSize:   size,
+		consume:     consume,
+		timeout:     timeout,
+		c:           make(chan T),
+		closeSignal: make(chan struct{}),
 	}
 
 	q.Start()
@@ -38,15 +34,13 @@ func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batc
 }
 
 type Batched[T any] struct {
-	m         sync.Mutex
-	closed    atomic.Bool
-	ctx       context.Context
-	canal     func()
-	batchSize int
-	timeout   time.Duration
-	c         chan T
-	consume   func([]T)
-	len       atomic.Int64
+	m           sync.Mutex
+	closeSignal chan struct{}
+	batchSize   int
+	timeout     time.Duration
+	c           chan T
+	consume     func([]T)
+	len         atomic.Int64
 }
 
 func (q *Batched[T]) Start() {
@@ -88,7 +82,7 @@ loop:
 				q.len.Store(0)
 			}
 
-		case <-q.ctx.Done():
+		case <-q.closeSignal:
 			break loop
 		}
 	}
@@ -96,18 +90,15 @@ loop:
 	if len(queue) > 0 {
 		q.consume(queue)
 	}
+	q.len.Store(0)
 }
 
 func (q *Batched[T]) Push(item T) {
-	if q.closed.Load() {
-		panic("push item to a closed queue")
-	}
 	q.c <- item
 }
 
 func (q *Batched[T]) Close() {
-	q.closed.Store(true)
-	q.canal()
+	q.closeSignal <- struct{}{}
 	close(q.c)
 	q.m.Lock()
 	q.m.Unlock()
