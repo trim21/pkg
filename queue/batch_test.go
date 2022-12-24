@@ -8,7 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"go.uber.org/goleak"
 
-	"github.com/trim21/go-pkg/queue"
+	"github.com/trim21/pkg/queue"
 )
 
 func TestBatched(t *testing.T) {

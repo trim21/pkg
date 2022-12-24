@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/trim21/go-pkg/queue"
+	"github.com/trim21/pkg/queue"
 )
 
 func main() {

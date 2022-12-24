@@ -20,7 +20,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/trim21/go-pkg/null"
+	"github.com/trim21/pkg/null"
 )
 
 func TestNull_Ptr(t *testing.T) {

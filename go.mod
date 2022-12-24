@@ -1,4 +1,4 @@
-module github.com/trim21/go-pkg
+module github.com/trim21/pkg
 
 go 1.19
 

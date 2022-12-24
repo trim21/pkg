@@ -19,7 +19,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 
-	"github.com/trim21/go-pkg/null"
+	"github.com/trim21/pkg/null"
 )
 
 func TestNilUint8(t *testing.T) {
