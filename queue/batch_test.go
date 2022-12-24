@@ -25,13 +25,13 @@ func TestBatched(t *testing.T) {
 		q.Push(i)
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 5)
 
 	for i := 0; i < 10; i++ {
 		q.Push(i)
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 5)
 
 	for i := 0; i < 8; i++ {
 		q.Push(i)
@@ -49,5 +49,5 @@ func TestBatched(t *testing.T) {
 		},
 		actual)
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 5)
 }
