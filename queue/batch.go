@@ -1,18 +1,34 @@
 package queue
 
 import (
-	"sync"
+	"context"
 	"sync/atomic"
 	"time"
 )
 
-// NewBatched create a batched queue, consume will receive a batched items on max size or on at interval.
-func NewBatched[T any](consume func([]T), size int, interval time.Duration) *Batched[T] {
+// NewBatched create a batched queue, consume will receive a batched items on max size or on at timeout.
+func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batched[T] {
+	ctx, canal := context.WithCancel(context.Background())
+
+	if size == 0 {
+		panic("size can't be 0")
+	}
+
+	if timeout == 0 {
+		panic("timeout can't be 0")
+	}
+
+	if consume == nil {
+		consume = func([]T) {}
+	}
+
 	q := &Batched[T]{
 		batchSize: size,
 		consume:   consume,
-		interval:  interval,
-		queue:     make([]T, 0, size),
+		timeout:   timeout,
+		c:         make(chan T, 1),
+		canal:     canal,
+		ctx:       ctx,
 	}
 
 	q.Start()
@@ -21,12 +37,14 @@ func NewBatched[T any](consume func([]T), size int, interval time.Duration) *Bat
 }
 
 type Batched[T any] struct {
-	mw        sync.Mutex
 	closed    atomic.Bool
-	queue     []T
+	ctx       context.Context
+	canal     func()
 	batchSize int
-	interval  time.Duration
+	timeout   time.Duration
+	c         chan T
 	consume   func([]T)
+	len       atomic.Int64
 }
 
 func (q *Batched[T]) Start() {
@@ -34,16 +52,45 @@ func (q *Batched[T]) Start() {
 }
 
 func (q *Batched[T]) background() {
+	queue := make([]T, 0, q.batchSize)
+
+	delay := time.NewTimer(q.timeout)
+	defer delay.Stop()
+
+loop:
 	for {
-		if q.closed.Load() {
-			break
+		delay.Reset(q.timeout)
+
+		select {
+		case item, ok := <-q.c:
+			if !ok {
+				// channel close
+				break loop
+			}
+
+			queue = append(queue, item)
+
+			q.len.Store(int64(len(queue)))
+			if len(queue) >= q.batchSize {
+				q.consume(queue)
+				queue = queue[:0]
+				q.len.Store(0)
+			}
+
+		case <-delay.C:
+			if len(queue) > 0 {
+				q.consume(queue)
+				queue = queue[:0]
+				q.len.Store(0)
+			}
+
+		case <-q.ctx.Done():
+			break loop
 		}
-		time.Sleep(q.interval)
-		q.mw.Lock()
-		if len(q.queue) != 0 {
-			q.consumeBatch()
-		}
-		q.mw.Unlock()
+	}
+
+	if len(queue) > 0 {
+		q.consume(queue)
 	}
 }
 
@@ -51,33 +98,15 @@ func (q *Batched[T]) Push(item T) {
 	if q.closed.Load() {
 		panic("push item to a closed queue")
 	}
-	q.mw.Lock()
-	q.queue = append(q.queue, item)
-	if len(q.queue) >= q.batchSize {
-		q.consumeBatch()
-	}
-	q.mw.Unlock()
+	q.c <- item
 }
 
 func (q *Batched[T]) Close() {
-	q.mw.Lock()
-	defer q.mw.Unlock()
-	if len(q.queue) != 0 {
-		q.consume(q.queue)
-	}
 	q.closed.Store(true)
-}
-
-func (q *Batched[T]) consumeBatch() {
-	queue := q.queue
-	q.queue = make([]T, 0, q.batchSize)
-	q.consume(queue)
+	q.canal()
+	close(q.c)
 }
 
 func (q *Batched[T]) Len() int {
-	q.mw.Lock()
-	l := len(q.queue)
-	q.mw.Unlock()
-
-	return l
+	return int(q.len.Load())
 }

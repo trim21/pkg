@@ -1,7 +1,6 @@
 package queue_test
 
 import (
-	"sync"
 	"testing"
 	"time"
 
@@ -13,13 +12,12 @@ import (
 
 func TestBatched(t *testing.T) {
 	defer goleak.VerifyNone(t)
-	var m sync.Mutex
 	var actual [][]int
 	q := queue.NewBatched[int](func(batch []int) {
-		m.Lock()
-		actual = append(actual, batch)
-		m.Unlock()
-	}, 10, time.Second*2)
+		var input = make([]int, len(batch))
+		copy(input, batch)
+		actual = append(actual, input)
+	}, 10, time.Second*3)
 
 	for i := 0; i < 22; i++ {
 		q.Push(i)
