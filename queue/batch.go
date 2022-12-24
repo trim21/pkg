@@ -1,12 +1,18 @@
 package queue
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 )
 
 // NewBatched create a batched queue, consume will receive a batched items on max size or on at timeout.
 func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batched[T] {
+	return NewBatchedDedupe[T](consume, size, timeout, func(items []T) []T { return items })
+}
+
+// NewBatchedDedupe create a batched queue, with dedupe
+func NewBatchedDedupe[T any](consume func([]T), size int, timeout time.Duration, dedupe func([]T) []T) *Batched[T] {
 	if size == 0 {
 		panic("size can't be 0")
 	}
@@ -25,6 +31,7 @@ func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batc
 		timeout:     timeout,
 		c:           make(chan T, 1),
 		closeSignal: make(chan struct{}),
+		dedupe:      dedupe,
 	}
 
 	q.Start()
@@ -39,6 +46,7 @@ type Batched[T any] struct {
 	c           chan T
 	consume     func([]T)
 	len         atomic.Int64
+	dedupe      func([]T) []T
 }
 
 func (q *Batched[T]) Start() {
@@ -48,9 +56,12 @@ func (q *Batched[T]) Start() {
 func (q *Batched[T]) background() {
 	queue := make([]T, 0, q.batchSize)
 
-	var firstElementPush = time.Time{}
+	var timeoutStart = time.Time{}
 
-	delay := time.NewTimer(time.Hour) // first timeout doesn't matter, it's not actually used because it will be reset to q.timeout - firstPush
+	// first timeout doesn't matter
+	// when reach first delay without any items, this goroutine will sleep without any activate channel
+	// when an item is pushed, timeoutStart will be set and delay will be set to correct value.
+	delay := time.NewTimer(time.Hour)
 	defer delay.Stop()
 
 	var consume = func() {
@@ -61,7 +72,7 @@ func (q *Batched[T]) background() {
 
 loop:
 	for {
-		t := q.timeout - time.Since(firstElementPush)
+		t := q.timeout - time.Since(timeoutStart)
 		if t > 0 {
 			delay.Reset(t)
 		}
@@ -75,13 +86,16 @@ loop:
 
 			queue = append(queue, item)
 
+			queue = q.dedupe(queue)
+
 			q.len.Store(int64(len(queue)))
 			if len(queue) >= q.batchSize {
 				consume()
 			}
 
 			if len(queue) == 1 {
-				firstElementPush = time.Now()
+				fmt.Println("set first timeout")
+				timeoutStart = time.Now()
 			}
 		case <-delay.C:
 			if len(queue) > 0 {

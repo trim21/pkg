@@ -82,3 +82,43 @@ func TestBatched_2(t *testing.T) {
 		},
 		actual)
 }
+
+// basic batch
+func TestBatched_dedupe(t *testing.T) {
+	defer goleak.VerifyNone(t)
+	var actual [][]int
+	q := queue.NewBatchedDedupe[int](func(batch []int) {
+		var input = make([]int, len(batch))
+		copy(input, batch)
+		actual = append(actual, input)
+	}, 10, time.Hour, func(items []int) []int {
+		keys := make(map[int]bool)
+		var list = make([]int, 0, len(items))
+
+		for _, entry := range items {
+			if _, value := keys[entry]; !value {
+				keys[entry] = true
+				list = append(list, entry)
+			}
+		}
+		return list
+	})
+
+	for i := 1; i < 9; i++ {
+		q.Push(i)
+	}
+
+	for i := 0; i < 9; i++ {
+		q.Push(9)
+	}
+
+	q.Push(10)
+
+	q.Close()
+
+	require.Equal(t,
+		[][]int{
+			{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+		},
+		actual)
+}
