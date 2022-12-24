@@ -11,7 +11,7 @@ Precision is limited by go timer, you should not use very short time like `1ms`,
 
 ### batch
 
-if you push 100 element with batch size, consume will be called 10 times, with chunked 10 items.
+if you push 100 element with batch size 10, consume will be called 10 times, each with chunked 10 items.
 
 ### timeout
 
@@ -21,6 +21,6 @@ q := NewBatched(..., time.Second)
 q.Push(1)
 ```
 
-if no other element is pushed to in the second, item `1` will be consumed in 1s later.
+If no other element is pushed to queue in the second, item `1` will be consumed in 1s later after it's pushed.
 
-And a batch is consumed, timeout will be reset, and start counting until any item pushed.
+And when a batch is consumed, timeout will be reset, and start counting until any new item pushed.
