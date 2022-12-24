@@ -2,6 +2,7 @@ package queue
 
 import (
 	"context"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -37,6 +38,7 @@ func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batc
 }
 
 type Batched[T any] struct {
+	m         sync.Mutex
 	closed    atomic.Bool
 	ctx       context.Context
 	canal     func()
@@ -52,6 +54,8 @@ func (q *Batched[T]) Start() {
 }
 
 func (q *Batched[T]) background() {
+	q.m.Lock()
+	defer q.m.Unlock()
 	queue := make([]T, 0, q.batchSize)
 
 	delay := time.NewTimer(q.timeout)
@@ -105,6 +109,8 @@ func (q *Batched[T]) Close() {
 	q.closed.Store(true)
 	q.canal()
 	close(q.c)
+	q.m.Lock()
+	q.m.Unlock()
 }
 
 func (q *Batched[T]) Len() int {

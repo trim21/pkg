@@ -17,19 +17,19 @@ func TestBatched(t *testing.T) {
 		var input = make([]int, len(batch))
 		copy(input, batch)
 		actual = append(actual, input)
-	}, 10, time.Second*3)
+	}, 10, time.Second)
 
-	for i := 0; i < 22; i++ {
+	for i := 1; i < 23; i++ {
 		q.Push(i)
 	}
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 3)
 
-	for i := 0; i < 10; i++ {
+	for i := -3; i < 7; i++ {
 		q.Push(i)
 	}
 
-	time.Sleep(time.Second * 5)
+	time.Sleep(time.Second * 3)
 
 	for i := 0; i < 8; i++ {
 		q.Push(i)
@@ -39,13 +39,11 @@ func TestBatched(t *testing.T) {
 
 	require.Equal(t,
 		[][]int{
-			{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
-			{10, 11, 12, 13, 14, 15, 16, 17, 18, 19},
-			{20, 21},
-			{0, 1, 2, 3, 4, 5, 6, 7, 8, 9},
+			{1, 2, 3, 4, 5, 6, 7, 8, 9, 10},
+			{11, 12, 13, 14, 15, 16, 17, 18, 19, 20},
+			{21, 22},
+			{-3, -2, -1, 0, 1, 2, 3, 4, 5, 6},
 			{0, 1, 2, 3, 4, 5, 6, 7},
 		},
 		actual)
-
-	time.Sleep(time.Second * 5)
 }
