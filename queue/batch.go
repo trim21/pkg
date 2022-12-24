@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -24,7 +23,7 @@ func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batc
 		batchSize:   size,
 		consume:     consume,
 		timeout:     timeout,
-		c:           make(chan T),
+		c:           make(chan T, 1),
 		closeSignal: make(chan struct{}),
 	}
 
@@ -34,7 +33,6 @@ func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batc
 }
 
 type Batched[T any] struct {
-	m           sync.Mutex
 	closeSignal chan struct{}
 	batchSize   int
 	timeout     time.Duration
@@ -48,25 +46,25 @@ func (q *Batched[T]) Start() {
 }
 
 func (q *Batched[T]) background() {
-	q.m.Lock()
-	defer q.m.Unlock()
 	queue := make([]T, 0, q.batchSize)
 
-	var lastConsume = time.Now()
+	var firstElementPush = time.Time{}
 
-	delay := time.NewTimer(q.timeout)
+	delay := time.NewTimer(time.Hour) // first timeout doesn't matter, it's not actually used because it will be reset to q.timeout - firstPush
 	defer delay.Stop()
 
 	var consume = func() {
 		q.consume(queue)
 		queue = queue[:0]
 		q.len.Store(0)
-		lastConsume = time.Now()
 	}
 
 loop:
 	for {
-		delay.Reset(q.timeout - time.Since(lastConsume))
+		t := q.timeout - time.Since(firstElementPush)
+		if t > 0 {
+			delay.Reset(t)
+		}
 
 		select {
 		case item, ok := <-q.c:
@@ -81,21 +79,26 @@ loop:
 			if len(queue) >= q.batchSize {
 				consume()
 			}
+
+			if len(queue) == 1 {
+				firstElementPush = time.Now()
+			}
 		case <-delay.C:
 			if len(queue) > 0 {
 				consume()
-			} else {
-				lastConsume = time.Now()
 			}
-
-		case <-q.closeSignal:
-			break loop
 		}
+	}
+
+	if !delay.Stop() {
+		<-delay.C
 	}
 
 	if len(queue) > 0 {
 		consume()
 	}
+
+	q.closeSignal <- struct{}{}
 }
 
 func (q *Batched[T]) Push(item T) {
@@ -103,10 +106,8 @@ func (q *Batched[T]) Push(item T) {
 }
 
 func (q *Batched[T]) Close() {
-	q.closeSignal <- struct{}{}
 	close(q.c)
-	q.m.Lock()
-	q.m.Unlock()
+	<-q.closeSignal
 }
 
 func (q *Batched[T]) Len() int {

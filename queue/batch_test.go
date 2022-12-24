@@ -49,18 +49,23 @@ func TestBatched_2(t *testing.T) {
 
 	q.Push(100)
 
-	time.Sleep(time.Millisecond * 700)
-	// 0.7s
-	q.Push(101)
+	time.Sleep(time.Second * 2)
+	// 2s
+
+	time.Sleep(time.Millisecond * 700) // 2.7s
+
+	q.Push(101) // first element, should reset waiting timeout to 0s
+
+	time.Sleep(time.Millisecond * 700) // 0.7s
+
 	q.Push(102)
 
-	time.Sleep(time.Millisecond * 700)
-	// 1.7s
+	time.Sleep(time.Millisecond * 700) // 1.4s, should consume
 
-	q.Push(103)
+	q.Push(103) // 0s
+	q.Push(104) // 0s
 
-	time.Sleep(time.Second * 2)
-	// 3.7s
+	time.Sleep(time.Second * 2) // 2s should consume
 
 	for i := 0; i < 8; i++ {
 		q.Push(i)
@@ -70,8 +75,9 @@ func TestBatched_2(t *testing.T) {
 
 	require.Equal(t,
 		[][]int{
-			{100, 101, 102},
-			{103},
+			{100},
+			{101, 102},
+			{103, 104},
 			{0, 1, 2, 3, 4, 5, 6, 7},
 		},
 		actual)
