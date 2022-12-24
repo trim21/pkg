@@ -1,7 +1,6 @@
 package queue
 
 import (
-	"fmt"
 	"sync/atomic"
 	"time"
 )
@@ -94,7 +93,6 @@ loop:
 			}
 
 			if len(queue) == 1 {
-				fmt.Println("set first timeout")
 				timeoutStart = time.Now()
 			}
 		case <-delay.C:
