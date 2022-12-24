@@ -52,12 +52,21 @@ func (q *Batched[T]) background() {
 	defer q.m.Unlock()
 	queue := make([]T, 0, q.batchSize)
 
+	var lastConsume = time.Now()
+
 	delay := time.NewTimer(q.timeout)
 	defer delay.Stop()
 
+	var consume = func() {
+		q.consume(queue)
+		queue = queue[:0]
+		q.len.Store(0)
+		lastConsume = time.Now()
+	}
+
 loop:
 	for {
-		delay.Reset(q.timeout)
+		delay.Reset(q.timeout - time.Since(lastConsume))
 
 		select {
 		case item, ok := <-q.c:
@@ -70,16 +79,13 @@ loop:
 
 			q.len.Store(int64(len(queue)))
 			if len(queue) >= q.batchSize {
-				q.consume(queue)
-				queue = queue[:0]
-				q.len.Store(0)
+				consume()
 			}
-
 		case <-delay.C:
 			if len(queue) > 0 {
-				q.consume(queue)
-				queue = queue[:0]
-				q.len.Store(0)
+				consume()
+			} else {
+				lastConsume = time.Now()
 			}
 
 		case <-q.closeSignal:
@@ -88,9 +94,8 @@ loop:
 	}
 
 	if len(queue) > 0 {
-		q.consume(queue)
+		consume()
 	}
-	q.len.Store(0)
 }
 
 func (q *Batched[T]) Push(item T) {
