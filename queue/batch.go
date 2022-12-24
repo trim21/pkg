@@ -73,3 +73,11 @@ func (q *Batched[T]) consumeBatch() {
 	q.queue = make([]T, 0, q.batchSize)
 	q.consume(queue)
 }
+
+func (q *Batched[T]) Len() int {
+	q.mw.Lock()
+	l := len(q.queue)
+	q.mw.Unlock()
+
+	return l
+}
