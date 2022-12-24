@@ -27,7 +27,7 @@ func NewBatched[T any](consume func([]T), size int, timeout time.Duration) *Batc
 		batchSize: size,
 		consume:   consume,
 		timeout:   timeout,
-		c:         make(chan T, 1),
+		c:         make(chan T),
 		canal:     canal,
 		ctx:       ctx,
 	}
