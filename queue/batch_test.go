@@ -23,13 +23,13 @@ func TestBatched(t *testing.T) {
 		q.Push(i)
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 
 	for i := -3; i < 7; i++ {
 		q.Push(i)
 	}
 
-	time.Sleep(time.Second * 3)
+	time.Sleep(time.Second * 2)
 
 	for i := 0; i < 8; i++ {
 		q.Push(i)
