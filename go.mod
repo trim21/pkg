@@ -3,9 +3,9 @@ module github.com/trim21/pkg
 go 1.19
 
 require (
-	github.com/bytedance/sonic v1.7.0
+	github.com/bytedance/sonic v1.8.0
 	github.com/stretchr/testify v1.8.1
-	go.uber.org/goleak v1.2.0
+	go.uber.org/goleak v1.2.1
 )
 
 require (
