@@ -3,7 +3,7 @@ module github.com/trim21/pkg
 go 1.19
 
 require (
-	github.com/stretchr/testify v1.8.2
+	github.com/stretchr/testify v1.8.4
 	go.uber.org/goleak v1.2.1
 )
 
