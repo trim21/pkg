@@ -31,6 +31,7 @@ func NewBatchedDedupe[T any](consume func([]T), size int, timeout time.Duration,
 		c:           make(chan T, 1),
 		closeSignal: make(chan struct{}),
 		dedupe:      dedupe,
+		flush:       make(chan struct{}, 1),
 	}
 
 	q.Start()
@@ -46,10 +47,15 @@ type Batched[T any] struct {
 	consume     func([]T)
 	len         atomic.Int64
 	dedupe      func([]T) []T
+	flush       chan struct{}
 }
 
 func (q *Batched[T]) Start() {
 	go q.background()
+}
+
+func (q *Batched[T]) Flush() {
+	q.flush <- struct{}{}
 }
 
 func (q *Batched[T]) background() {
@@ -94,6 +100,10 @@ loop:
 
 			if len(queue) == 1 {
 				timeoutStart = time.Now()
+			}
+		case <-q.flush:
+			if len(queue) > 0 {
+				consume()
 			}
 		case <-delay.C:
 			if len(queue) > 0 {
