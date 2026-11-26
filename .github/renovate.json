@@ -2,6 +2,7 @@
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
     "local>Trim21/renovate-config",
+    "local>Trim21/renovate-config:lib",
     "local>Trim21/renovate-config:monthly"
   ],
   "rebaseWhen": "conflicted",
@@ -19,12 +20,6 @@
       ],
       "matchPackageNames": [
         "mysql"
-      ],
-      "enabled": false
-    },
-    {
-      "matchPackageNames": [
-        "go"
       ],
       "enabled": false
     },
